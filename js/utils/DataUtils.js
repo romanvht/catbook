@@ -9,26 +9,39 @@ export class DataUtils {
     return `${weight.metric} кг`;
   }
 
-  static filterBreeds(breeds, searchTerm) {
-    if (!searchTerm) return breeds;
+  static formatHypoallergenic(hypoallergenic) {
+    return hypoallergenic === 1 ? 'Да' : 'Нет';
+  }
 
-    const term = searchTerm.toLowerCase();
-    return breeds.filter(breed =>
-      breed.name.toLowerCase().includes(term) ||
-      breed.origin.toLowerCase().includes(term) ||
-      (breed.temperament && breed.temperament.toLowerCase().includes(term))
-    );
+  static formatError(error) {
+    const errorMessages = {
+      403: 'Недостаточно прав доступа. Проверьте ваш API ключ.',
+      404: 'Данные не найдены.',
+      429: 'Слишком много запросов. Попробуйте позже.',
+      500: 'Ошибка сервера. Попробуйте позже.',
+      'Network Error': 'Ошибка сети. Проверьте интернет соединение.'
+    };
+
+    if (error.message && errorMessages[error.message]) {
+      return errorMessages[error.message];
+    }
+
+    if (error.status && errorMessages[error.status]) {
+      return errorMessages[error.status];
+    }
+
+    return 'Произошла неизвестная ошибка. Попробуйте позже.';
   }
 
   static normalizeBreedData(breed) {
     return {
       id: breed.id,
-      name: breed.name || 'Неизвестная порода',
+      name: DataUtils.getBreedName(breed.name) || 'Неизвестная порода',
       description: breed.description || 'Описание не доступно',
       origin: breed.origin || 'Неизвестно',
       life_span: breed.life_span || '',
       weight: breed.weight || {},
-      temperament: breed.temperament || '',
+      temperament: DataUtils.translateTemperament(breed.temperament) || '',
       wikipedia_url: breed.wikipedia_url || '',
       image: breed.image || null,
       energy_level: breed.energy_level || 0,
@@ -69,28 +82,143 @@ export class DataUtils {
     return names[key] || key;
   }
 
-  static formatHypoallergenic(hypoallergenic) {
-    return hypoallergenic === 1 ? 'Да' : 'Нет';
+  static getBreedName(key) {
+    const names = {
+      'Abyssinian': 'Абиссинская',
+      'Aegean': 'Эгейская',
+      'American Bobtail': 'Американский бобтейл',
+      'American Curl': 'Американский керл',
+      'American Shorthair': 'Американская короткошёрстная',
+      'American Wirehair': 'Американская жесткошёрстная',
+      'Arabian Mau': 'Аравийский мау',
+      'Australian Mist': 'Австралийский туман',
+      'Balinese': 'Балинезийская',
+      'Bambino': 'Бамбино',
+      'Bengal': 'Бенгальская',
+      'Birman': 'Бирманская',
+      'Bombay': 'Бомбейская',
+      'British Longhair': 'Британская длинношёрстная',
+      'British Shorthair': 'Британская короткошёрстная',
+      'Burmese': 'Бурманская',
+      'Burmilla': 'Бурмилла',
+      'California Spangled': 'Калифорнийская пятнистая',
+      'Chantilly-Tiffany': 'Шантильи-тиффани',
+      'Chartreux': 'Шартрё',
+      'Chausie': 'Чаузи',
+      'Cheetoh': 'Чито',
+      'Colorpoint Shorthair': 'Колорпойнт короткошёрстная',
+      'Cornish Rex': 'Корниш-рекс',
+      'Cymric': 'Кимрик',
+      'Cyprus': 'Кипрская',
+      'Devon Rex': 'Девон-рекс',
+      'Donskoy': 'Донской сфинкс',
+      'Dragon Li': 'Дракон Ли',
+      'Egyptian Mau': 'Египетская мау',
+      'European Burmese': 'Европейская бурманская',
+      'Exotic Shorthair': 'Экзотическая короткошёрстная',
+      'Havana Brown': 'Гавана браун',
+      'Himalayan': 'Гималайская',
+      'Japanese Bobtail': 'Японский бобтейл',
+      'Javanese': 'Яванская',
+      'Khao Manee': 'Као мани',
+      'Korat': 'Корат',
+      'Kurilian': 'Курильский бобтейл',
+      'LaPerm': 'ЛаПерм',
+      'Maine Coon': 'Мейн-кун',
+      'Malayan': 'Малайская',
+      'Manx': 'Мэнкс',
+      'Munchkin': 'Манчкин',
+      'Nebelung': 'Нибелунг',
+      'Norwegian Forest Cat': 'Норвежская лесная',
+      'Ocicat': 'Оцикет',
+      'Oriental': 'Ориентальная',
+      'Persian': 'Персидская',
+      'Pixie-bob': 'Пикси-боб',
+      'Ragamuffin': 'Рэгамаффин',
+      'Ragdoll': 'Рэгдолл',
+      'Russian Blue': 'Русская голубая',
+      'Savannah': 'Саванна',
+      'Scottish Fold': 'Шотландская вислоухая',
+      'Selkirk Rex': 'Селкирк-рекс',
+      'Siamese': 'Сиамская',
+      'Siberian': 'Сибирская',
+      'Singapura': 'Сингапура',
+      'Snowshoe': 'Сноу-шу',
+      'Somali': 'Сомалийская',
+      'Sphynx': 'Сфинкс',
+      'Tonkinese': 'Тонкинская',
+      'Toyger': 'Тойгер',
+      'Turkish Angora': 'Турецкая ангора',
+      'Turkish Van': 'Турецкий ван',
+      'York Chocolate': 'Йорк шоколадная'
+    };
+    return names[key] || key;
   }
 
-  static formatError(error) {
-    const errorMessages = {
-      403: 'Недостаточно прав доступа. Проверьте ваш API ключ.',
-      404: 'Данные не найдены.',
-      429: 'Слишком много запросов. Попробуйте позже.',
-      500: 'Ошибка сервера. Попробуйте позже.',
-      'Network Error': 'Ошибка сети. Проверьте интернет соединение.'
+  static getTemperamentName(key) {
+    const names = {
+      'Active': 'Активный',
+      'Energetic': 'Энергичный',
+      'Independent': 'Независимый',
+      'Intelligent': 'Умный',
+      'Gentle': 'Нежный',
+      'Affectionate': 'Ласковый',
+      'Social': 'Общительный',
+      'Playful': 'Игривый',
+      'Interactive': 'Контактный',
+      'Lively': 'Живой',
+      'Sensitive': 'Чувствительный',
+      'Curious': 'Любопытный',
+      'Easy Going': 'Спокойный',
+      'Calm': 'Спокойный',
+      'Loyal': 'Преданный',
+      'Sensible': 'Разумный',
+      'Agile': 'Проворный',
+      'Fun-loving': 'Веселый',
+      'Relaxed': 'Расслабленный',
+      'Friendly': 'Дружелюбный',
+      'Alert': 'Бдительный',
+      'Demanding': 'Требовательный',
+      'Dependent': 'Зависимый',
+      'Patient': 'Терпеливый',
+      'calm': 'Спокойный',
+      'Highly interactive': 'Очень контактный',
+      'Mischievous': 'Озорной',
+      'affectionate': 'Ласковый',
+      'loyal': 'Преданный',
+      'social': 'Общительный',
+      'Loving': 'Любящий',
+      'Sweet': 'Милый',
+      'Quiet': 'Тихий',
+      'Peaceful': 'Мирный',
+      'Clever': 'Сообразительный',
+      'Devoted': 'Преданный',
+      'Talkative': 'Разговорчивый',
+      'Warm': 'Теплый',
+      'highly intelligent': 'Очень умный',
+      'Expressive': 'Выразительный',
+      'Trainable': 'Обучаемый',
+      'clever': 'Сообразительный',
+      'inquisitive': 'Пытливый',
+      'sociable': 'Общительный',
+      'playful': 'Игривый',
+      'trainable': 'Обучаемый',
+      'Adaptable': 'Адаптивный',
+      'Shy': 'Застенчивый',
+      'Sedate': 'Степенный',
+      'Easygoing': 'Беззаботный',
+      'Outgoing': 'Общительный',
+      'Adventurous': 'Авантюрный',
+      'Sociable': 'Общительный',
+      'Sweet-tempered': 'Добродушный',
+      'Tenacious': 'Упорный',
+      'Inquisitive': 'Пытливый'
     };
+    return names[key] || key;
+  }
 
-    if (error.message && errorMessages[error.message]) {
-      return errorMessages[error.message];
-    }
-
-    if (error.status && errorMessages[error.status]) {
-      return errorMessages[error.status];
-    }
-
-    return 'Произошла неизвестная ошибка. Попробуйте позже.';
+  static translateTemperament(temperamentString) {
+    return temperamentString.split(',').map(temp => this.getTemperamentName(temp.trim())).join(', ');
   }
 
   static saveToStorage(key, data) {

@@ -8,7 +8,12 @@ export function useBreedsList(catApiService) {
   const error = ref(null)
 
   const filteredBreeds = computed(() => {
-    return DataUtils.filterBreeds(breeds.value, searchTerm.value)
+    if (!searchTerm.value) return breeds.value;
+
+    const term = searchTerm.value.toLowerCase();
+    return breeds.value.filter(breed =>
+      breed.name.toLowerCase().includes(term) || breed.origin.toLowerCase().includes(term)
+    );
   })
 
   const loadBreedsList = async () => {
