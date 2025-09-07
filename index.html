@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Котобук</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <script type="importmap">
+    {
+      "imports": {
+        "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js"
+      }
+    }
+    </script>
+</head>
+
+<body>
+  <div id="app" v-cloak>
+    <div class="container">
+      <header class="header">
+        <div class="header-content">
+          <h1 @click="goHome" class="header-title">
+            🐱 Котобук
+          </h1>
+          <div v-if="currentBreed" class="breadcrumb">
+            <button @click="goHome" class="back-button">
+              ← Назад
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div v-if="loading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Загружаем породы...</p>
+      </div>
+
+      <div v-if="error" class="error-container">
+        <p>{{ error }}</p>
+        <button @click="retry" class="retry-button">
+          Попробовать снова
+        </button>
+      </div>
+
+      <transition name="fade">
+        <div v-if="!loading && !currentBreed && breeds.length > 0">
+          <div class="search-container">
+            <input v-model="searchTerm" type="search" placeholder="Поиск по породам..." class="search-input">
+          </div>
+
+          <div class="breeds-grid">
+            <div v-for="breed in filteredBreeds" :key="breed.id" @click="selectBreed(breed)" class="breed-card">
+              <div class="breed-image-container">
+                <img v-if="breed.image" :src="breed.image.url" :alt="breed.name" class="breed-image"
+                  @error="handleImageError">
+                <div v-else class="breed-image-placeholder">
+                  <span class="placeholder-icon">🐱</span>
+                </div>
+              </div>
+              <div class="breed-info">
+                <h3 class="breed-name">{{ breed.name }}</h3>
+                <div class="breed-meta">
+                  <span>{{ breed.origin }}</span>
+                  <span class="meta-separator">•</span>
+                  <span>{{ getLifeSpan(breed) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <transition name="fade">
+        <div v-if="currentBreed && !loading">
+          <div class="breed-detail-card">
+            <div class="breed-detail-content">
+              <div class="breed-detail-image">
+                <div class="detail-image-container">
+                  <img v-if="currentBreed.image" :src="currentBreed.image.url" :alt="currentBreed.name"
+                    class="detail-image">
+                  <div v-else class="detail-image-placeholder">
+                    <span class="detail-placeholder-icon">🐱</span>
+                  </div>
+                </div>
+                <div v-if="currentBreed.wikipedia_url" class="wikipedia-link">
+                  <a :href="currentBreed.wikipedia_url" target="_blank" class="wikipedia-button">
+                    📖 Читать на Wikipedia
+                    <svg class="external-link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
+                      </path>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+
+              <div class="breed-detail-info">
+                <h2 class="detail-title">
+                  {{ currentBreed.name }}
+                </h2>
+                <p class="detail-description">
+                  <template v-if="isTranslating">
+                    <div class="loading-spinner"></div>
+                  </template>
+                  <template v-else>
+                    {{ translatedDescription }}
+                  </template>
+                </p>
+
+                <div class="basic-info">
+                  <h4 class="info-title">Основная информация</h4>
+                  <div class="info-list">
+                    <div class="info-item">
+                      <span class="info-label">Происхождение:</span>
+                      <span class="info-value">{{ currentBreed.origin }}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">Продолжительность жизни:</span>
+                      <span class="info-value">{{ getLifeSpan(currentBreed) }}</span>
+                    </div>
+                    <div class="info-item">
+                      <span class="info-label">Вес:</span>
+                      <span class="info-value">{{ getWeight(currentBreed) }}</span>
+                    </div>
+                    <div v-if="currentBreed.temperament" class="info-item">
+                      <span class="info-label">Темперамент:</span>
+                      <span class="info-value">{{ currentBreed.temperament }}</span>
+                    </div>
+                    <div v-if="currentBreed.hypoallergenic !== undefined" class="info-item">
+                      <span class="info-label">Гипоаллергенная:</span>
+                      <span class="info-value">{{ getHypoallergenic(currentBreed) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="ratings-section">
+                  <h4 class="info-title">Характеристики</h4>
+                  <div class="ratings-grid">
+                    <div class="ratings-column">
+                      <div v-if="currentBreed.energy_level" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('energy_level') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.energy_level, 'energy': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.affection_level" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('affection_level') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.affection_level, 'affection': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.intelligence" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('intelligence') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.intelligence, 'intelligence': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.adaptability" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('adaptability') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.adaptability, 'adaptability': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.child_friendly" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('child_friendly') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.child_friendly, 'child_friendly': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.cat_friendly" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('cat_friendly') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.cat_friendly, 'cat_friendly': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.dog_friendly" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('dog_friendly') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.dog_friendly, 'dog_friendly': true }">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="ratings-column">
+                      <div v-if="currentBreed.grooming" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('grooming') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.grooming, 'grooming': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.health_issues" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('health_issues') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.health_issues, 'health_issues': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.shedding_level" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('shedding_level') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.shedding_level, 'shedding_level': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.social_needs" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('social_needs') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.social_needs, 'social_needs': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.stranger_friendly" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('stranger_friendly') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.stranger_friendly, 'stranger_friendly': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.vocalisation" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('vocalisation') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.vocalisation, 'vocalisation': true }">
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="currentBreed.bidability" class="rating-item">
+                        <span class="rating-label">{{ getCharacteristicName('bidability') }}</span>
+                        <div class="rating-stars">
+                          <div v-for="i in 5" :key="i" class="rating-star"
+                            :class="{ 'active': i <= currentBreed.bidability, 'bidability': true }">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gallery-card">
+            <div v-if="photosLoading" class="photos-loading">
+              <div class="loading-spinner"></div>
+            </div>
+
+            <div v-else-if="breedPhotos.length > 0" class="gallery-content">
+              <div class="photos-grid">
+                <div v-for="photo in displayedPhotos" :key="photo.id" class="photo-item">
+                  <img :src="photo.url" :alt="`Фото ${currentBreed.name}`" class="photo-image"
+                    @click="openPhotoModal(photo)" @error="handleImageError">
+                  <div class="photo-overlay"></div>
+                </div>
+              </div>
+
+              <div v-if="showPagination" class="pagination">
+                <button @click="previousPage" :disabled="currentPage === 1" class="pagination-button prev"
+                  :class="{ 'disabled': currentPage === 1 }">
+                  ←
+                </button>
+
+                <div class="pagination-numbers">
+                  <button v-for="page in visiblePages" :key="page" @click="goToPage(page)" class="pagination-number"
+                    :class="{ 'active': page === currentPage }">
+                    {{ page }}
+                  </button>
+                </div>
+
+                <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button next"
+                  :class="{ 'disabled': currentPage === totalPages }">
+                  →
+                </button>
+              </div>
+            </div>
+
+            <div v-else class="no-photos">
+              <p>Фото этой породы нет 😿</p>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <div v-if="selectedPhoto" @click="closePhotoModal" class="photo-modal">
+        <div class="modal-content" @click.stop>
+          <button v-if="modalNavigationInfo.hasPrev" @click="previousPhoto"
+            class="modal-nav-button modal-nav-prev">˂</button>
+          <img :src="selectedPhoto.url" :alt="`Фото ${currentBreed?.name}`" class="modal-image">
+          <button v-if="modalNavigationInfo.hasNext" @click="nextPhoto"
+            class="modal-nav-button modal-nav-next">˃</button>
+          <button @click="closePhotoModal" class="modal-close">✕</button>
+          <div class="modal-counter">
+            {{ modalNavigationInfo.currentIndex }} / {{ modalNavigationInfo.totalPhotos }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
